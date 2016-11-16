@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<meta name="description" content="WebGL Learning">
+		<meta name="keywords" content="HTML,CSS,XML,JavaScript, HTML5, WebGL, threejs">
+		<meta name="author" content="Le Viet Quang">
+		<title>Sphere - WebGL</title>
+		<style type="text/css">
+			html{height: 100%}
+			body{position: relative; width: 100%; height: 100%; margin: 0; padding: 0}
+			.wrapper{position: relative; width: 100%; height: 100%; margin: 0; background-color: white; overflow: hidden;}
+			.wrapper h1{position: relative; height: 30px; font-size: 14px; color: #000; width: 100%; margin: 20px 0px 0px 0px; padding: 0; text-align: center; }
+			.wrapper .center{position: relative; width: 1024px; height: 768px; margin: 0px auto}
+			.wrapper #canvas{position: relative; width: 1024px; height: 768px; margin: 0px auto; background-color: #000}
+		</style>
+
+        <script id="shader-fs" type="x-shader/x-fragment">
+            precision mediump float;
+
+            varying vec2 vTextureCoord;
+            varying vec3 vLightWeighting;
+
+            uniform sampler2D uSampler;
+            varying highp vec4 vColor;
+
+            void main(void) {
+                vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+                /*gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);*/
+                gl_FragColor = vColor;
+            }
+        </script>
+
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoord;
+            attribute vec3 aVerticesColor;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat3 uNMatrix;
+
+            uniform vec3 uAmbientColor;
+
+            uniform vec3 uLightingDirection;
+            uniform vec3 uDirectionalColor;
+
+            uniform bool uUseLighting;
+
+            varying vec2 vTextureCoord;
+            varying vec3 vLightWeighting;
+            varying highp vec4 vColor;
+
+            void main(void) {
+                gl_Position = uMVMatrix * uPMatrix *  vec4(aVertexPosition, 1.0);
+                vTextureCoord = aTextureCoord;
+
+                vColor = vec4(aVerticesColor,1.0);
+
+                if (!uUseLighting) {
+                    vLightWeighting = vec3(1.0, 1.0, 1.0);
+                } else {
+                    vec3 transformedNormal = uNMatrix * aVertexNormal;
+                    float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
+                    vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
+                }
+            }
+        </script>
+		<script type="text/javascript" src="gl-matrix-min.js"></script>
+		<script type="text/javascript" src="sphere.js"></script>
+	</head>
+	<body>
+		<div class="wrapper">
+			<h1>Intro WebGL basic</h1>
+			<div class="center">
+				<canvas id="canvas" width="1024" height="768">Your browser does not support the HTML5 canvas element.</canvas>
+			</div>
+		</div>
+	</body>
+</html>
