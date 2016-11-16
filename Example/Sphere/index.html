@@ -16,58 +16,6 @@
 			.wrapper #canvas{position: relative; width: 1024px; height: 768px; margin: 0px auto; background-color: #000}
 		</style>
 
-        <script id="shader-fs" type="x-shader/x-fragment">
-            precision mediump float;
-
-            varying vec2 vTextureCoord;
-            varying vec3 vLightWeighting;
-
-            uniform sampler2D uSampler;
-            varying highp vec4 vColor;
-
-            void main(void) {
-                vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-                /*gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a);*/
-                gl_FragColor = vColor;
-            }
-        </script>
-
-        <script id="shader-vs" type="x-shader/x-vertex">
-            attribute vec3 aVertexPosition;
-            attribute vec3 aVertexNormal;
-            attribute vec2 aTextureCoord;
-            attribute vec3 aVerticesColor;
-
-            uniform mat4 uMVMatrix;
-            uniform mat4 uPMatrix;
-            uniform mat3 uNMatrix;
-
-            uniform vec3 uAmbientColor;
-
-            uniform vec3 uLightingDirection;
-            uniform vec3 uDirectionalColor;
-
-            uniform bool uUseLighting;
-
-            varying vec2 vTextureCoord;
-            varying vec3 vLightWeighting;
-            varying highp vec4 vColor;
-
-            void main(void) {
-                gl_Position = uMVMatrix * uPMatrix *  vec4(aVertexPosition, 1.0);
-                vTextureCoord = aTextureCoord;
-
-                vColor = vec4(aVerticesColor,1.0);
-
-                if (!uUseLighting) {
-                    vLightWeighting = vec3(1.0, 1.0, 1.0);
-                } else {
-                    vec3 transformedNormal = uNMatrix * aVertexNormal;
-                    float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-                    vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;
-                }
-            }
-        </script>
 		<script type="text/javascript" src="gl-matrix-min.js"></script>
 		<script type="text/javascript" src="sphere.js"></script>
 	</head>
