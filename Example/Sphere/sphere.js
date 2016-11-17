@@ -14,6 +14,18 @@ window.requestAnimFrame = (function(){
 })();
 
 var YWidget = {version:"1.0", description:"3D Widget"};
+YWidget.Utils = {};
+YWidget.Utils.getMousePosition = function (e) {
+    if(e.pageX)
+    {
+        return {x:e.pageX, y:e.pageY};
+    }
+    else
+    {
+        return {x:e.changedTouches[0].pageX, y:e.changedTouches[0].pageY };
+    }
+};
+
 YWidget.YRendered = function ()
 {
 
@@ -24,36 +36,29 @@ YWidget.Sphere = function ()
     var ui = this;
     var vsh_txt = "attribute vec3 aVertexPosition;\n";
     vsh_txt    += "attribute vec2 aTextureCoord;\n";
-    vsh_txt    += "attribute vec3 aVertexColor;\n";
     vsh_txt    += "uniform mat4 uMVMatrix;\n";
     vsh_txt    += "uniform mat4 uPMatrix;\n";
     vsh_txt    += "varying vec2 vTextureCoord;\n";
-    vsh_txt    += "varying highp vec4 vColor;\n";
     vsh_txt    += "void main(void) {\n";
     vsh_txt    += "    gl_Position = uMVMatrix * uPMatrix *  vec4(aVertexPosition, 1.0);\n";
     vsh_txt    += "    vTextureCoord = aTextureCoord;\n";
-    vsh_txt    += "    vColor = vec4(aVertexColor,1.0);\n";
     vsh_txt    += "}\n";
 
     var fsh_txt = "precision mediump float;\n";
     fsh_txt     += "varying vec2 vTextureCoord;\n";
     fsh_txt     += "uniform sampler2D uSampler;\n";
-    fsh_txt     += "varying highp vec4 vColor;\n";
     fsh_txt     += "void main(void) {\n";
     fsh_txt     += "    vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));\n";
-    fsh_txt     += "    //gl_FragColor = textureColor;\n";
-    fsh_txt     += "    gl_FragColor = vColor;\n";
+    fsh_txt     += "    gl_FragColor = textureColor;\n";
     fsh_txt     += "}\n";
 
     var verticesPosition = [];
-    var verticesColor = [];
     var textureCoordData = [];
     var verticesIndexData = [];
     var modelViewMatrix = null;
     var projectionMatrix = null;
 
     var verticesPositionBuffer = null;
-    var verticesColorBuffer = null;
     var textureCoordBuffer = null;
     var verticesIndexBuffer = null;
 
@@ -65,13 +70,17 @@ YWidget.Sphere = function ()
     var vertexShader = null;
     var fragmentShader = null;
 
+    var aspect = 1;
+
     ui.canvas = null;
     ui.ctx = null;
     ui.vWidth = 0;
     ui.vHeight = 0;
+    ui.direction = 0;
     ui.span = 0;
     ui.tilt = 0;
     ui.zoom = 1;
+    ui.currentPos = null;
     ui.isMouseDown = false;
     ui.latitudeBands = 30;
     ui.longitudeBands = 30;
@@ -83,13 +92,23 @@ YWidget.Sphere = function ()
     {
         if(ui.isMouseDown == false)
         {
-            ui.span += 0.5;
+            ui.span += 0.01;
             if(ui.span > 360) ui.span = 360 - ui.span;
         }
     }
 
+    function updateViewByMouse(dx,dy)
+    {
+        ui.span += dx*ui.direction;
+        ui.tilt -= dy*ui.direction;
+        if(ui.span > 360) ui.span = 360 - ui.span;
+        if(ui.tilt > 360) ui.tilt = 360 - ui.tilt;
+    }
+
     function makeShereData()
     {
+        ui.radius *= ui.zoom;
+
         // Vertex array
         for (var i = 0; i <= ui.latitudeBands; i++) {
             var theta = i * Math.PI / ui.latitudeBands;
@@ -112,9 +131,6 @@ YWidget.Sphere = function ()
                 verticesPosition.push(ui.radius * x);
                 verticesPosition.push(ui.radius * y);
                 verticesPosition.push(ui.radius * z);
-                verticesColor.push(255.0);
-                verticesColor.push(200.0);
-                verticesColor.push(155.0);
             }
         }
 
@@ -204,9 +220,17 @@ YWidget.Sphere = function ()
 
     function setupWebGLViewport()
     {
-        ui.ctx.viewport(0,0, ui.canvas.width, ui.canvas.height);
+        var dy = (ui.canvas.width - ui.canvas.height)/2;
+        ui.ctx.viewport(0,-dy, ui.canvas.width, ui.canvas.width);
         ui.vWidth = ui.canvas.width;
         ui.vHeight = ui.canvas.height;
+        aspect = ui.vWidth/ui.vHeight;
+
+        ui.direction = 0.01*Math.sqrt(ui.vWidth*ui.vWidth + ui.vHeight*ui.vHeight)/360;
+
+        if(aspect>1) {
+            ui.zoom = 1/aspect;
+        }
     }
 
     function setupWebGLMatrix()
@@ -243,12 +267,6 @@ YWidget.Sphere = function ()
         ui.ctx.bufferData(ui.ctx.ARRAY_BUFFER, new Float32Array(verticesPosition), ui.ctx.STATIC_DRAW);
         verticesPositionBuffer.itemSize = 3;
         verticesPositionBuffer.numItems = verticesPosition.length/3;
-
-        verticesColorBuffer = ui.ctx.createBuffer();
-        ui.ctx.bindBuffer(ui.ctx.ARRAY_BUFFER, verticesColorBuffer);
-        ui.ctx.bufferData(ui.ctx.ARRAY_BUFFER, new Float32Array(verticesColor), ui.ctx.STATIC_DRAW);
-        verticesColorBuffer.itemSize = 3;
-        verticesColorBuffer.numItems = verticesColor.length/3;
 
         textureCoordBuffer = ui.ctx.createBuffer();
         ui.ctx.bindBuffer(ui.ctx.ARRAY_BUFFER, textureCoordBuffer);
@@ -320,11 +338,6 @@ YWidget.Sphere = function ()
         ui.ctx.bindBuffer(ui.ctx.ARRAY_BUFFER, textureCoordBuffer);
         ui.ctx.vertexAttribPointer(glProgram.textureCoordAttribute, textureCoordBuffer.itemSize, ui.ctx.FLOAT, false, 0, 0);
 
-        glProgram.vertexColorAttribute    = ui.ctx.getAttribLocation(glProgram, "aVertexColor");
-        ui.ctx.enableVertexAttribArray(glProgram.vertexColorAttribute);
-        ui.ctx.bindBuffer(ui.ctx.ARRAY_BUFFER, verticesColorBuffer);
-        ui.ctx.vertexAttribPointer(glProgram.vertexColorAttribute, verticesColorBuffer.itemSize, ui.ctx.FLOAT, false, 0, 0);
-
         // Get set for Texture
         ui.ctx.activeTexture(ui.ctx.TEXTURE0);
         ui.ctx.bindTexture(ui.ctx.TEXTURE_2D, glTexture);
@@ -367,7 +380,7 @@ YWidget.Sphere = function ()
 
         // Draw
         ui.ctx.bindBuffer(ui.ctx.ELEMENT_ARRAY_BUFFER, verticesIndexBuffer);
-        ui.ctx.drawElements(ui.ctx.TRIANGLES, verticesIndexBuffer.number_vertex_points, ui.ctx.UNSIGNED_SHORT, 0);
+        ui.ctx.drawElements(ui.ctx.TRIANGLES, verticesIndexBuffer.numItems, ui.ctx.UNSIGNED_SHORT, 0);
     }
 
     function rendered()
@@ -377,6 +390,35 @@ YWidget.Sphere = function ()
         drawWebGLContext();
         update();
         requestAnimationFrame(rendered,ui.canvas);
+    }
+
+    function mouseDown(e)
+    {
+        ui.isMouseDown = true;
+        ui.currentPos = YWidget.Utils.getMousePosition(e);
+    }
+
+    function mouseMove(e)
+    {
+        if(ui.isMouseDown)
+        {
+            nextPos = YWidget.Utils.getMousePosition(e);
+            updateViewByMouse(nextPos.x-ui.currentPos.x, nextPos.y-ui.currentPos.y);
+            ui.currentPos = nextPos;
+        }
+    }
+
+    function mouseUp(e)
+    {
+        ui.isMouseDown = false;
+    }
+
+    function addEvent()
+    {
+        ui.canvas.addEventListener("mousedown", mouseDown, false);
+        ui.canvas.addEventListener("mouseup", mouseUp, false);
+        ui.canvas.addEventListener("mouseout", mouseUp, false);
+        ui.canvas.addEventListener("mousemove", mouseMove, false);
     }
 
     this.initSphere = function (canvas, radius, texturename, center)
@@ -391,6 +433,8 @@ YWidget.Sphere = function ()
         setupWebGLBuffer();
         initWebGLShader();
         initWebGLTexture();
+
+        addEvent();
     }
 
 };
